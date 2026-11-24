@@ -1,0 +1,51 @@
+spring:
+  application:
+    name: todo-server
+
+  # 只跑 MySQL，不再保留 H2 的本地文件库分支。
+  # 建库只需执行一次（Flyway 不负责建库，它只建表）：
+  #   CREATE DATABASE todo CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+  #   CREATE USER 'todo'@'localhost' IDENTIFIED BY 'todo123';
+  #   GRANT ALL PRIVILEGES ON todo.* TO 'todo'@'localhost';
+  # 连接信息全部可用环境变量覆盖，默认值只对本地开发有效。
+  datasource:
+    # connectionTimeZone=UTC + forceConnectionTimeZoneToSession=true：
+    # 会话统一按 UTC 处理，DATETIME 列里存的就是 UTC 时刻。
+    # 不用 serverTimezone=Asia/Shanghai —— 那是旧参数，会让驱动做隐式偏移，
+    # 导致"库里是本地时间、接口是 UTC"两套语义并存。展示时由客户端转本地时区。
+    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:todo}?useUnicode=true&characterEncoding=utf8&connectionTimeZone=UTC&forceConnectionTimeZoneToSession=true&allowPublicKeyRetrieval=true&useSSL=false
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    username: ${DB_USER:todo}
+    password: ${DB_PASSWORD:todo123}
+
+  jpa:
+    # 表结构完全交给 Flyway 管理，Hibernate 只做映射。
+    hibernate:
+      ddl-auto: none
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+        jdbc:
+          # 显式声明 JDBC 时间绑定用 UTC，不依赖驱动默认行为
+          time_zone: UTC
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    # 已有数据的库首次接入 Flyway 时不会因非空 schema 报错
+    baseline-on-migrate: true
+
+app:
+  jwt:
+    # HS256 要求至少 32 字节。生产环境务必用环境变量 JWT_SECRET 覆盖，不要提交真实密钥。
+    secret: ${JWT_SECRET:dev-only-secret-please-change-in-production-32bytes}
+    expire-minutes: 720
+
+server:
+  port: 8080
+
+logging:
+  level:
+    org.flywaydb: INFO
+    org.hibernate.SQL: debug
